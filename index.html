@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.5.0/axios.min.js"
+      integrity="sha512-aoTNnqZcT8B4AmeCFmiSnDlc4Nj/KPaZyB5G7JnOnUEkdNpCZs1LCankiYi01sLTyWy+m2P+W4XM+BuQ3Q4/Dg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+  <body>
+    <title>Thiettruong</title>
+    <button id="_login">Login</button>
+    <button id="_getList">Get list</button>
+    <script>
+      // create instance axios config
+      const instance = axios.create({
+        baseURL: "/api", //http://localhost:3333/api
+        timeout: 3 * 1000, //miliseconds
+        headers: {
+          contentType: "application/json",
+        },
+      });
+      instance.interceptors.request.use(
+        async (config) => {
+          // if (
+          //   config.url.indexOf("/login") >= 0 ||
+          //   config.url.indexOf("/refreshToken") >= 0
+          // ) {
+          //   return config;
+          // }
+          // const { token, expired } = await instance.getLocalAccessToken();
+
+          // const nowTime = Date.now();
+          // if (expired < nowTime) {
+          //   try {
+          //     const {
+          //       accessToken: { token, expired },
+          //     } = await refreshToken();
+          //     await instance.setLocalAccessToken(token, expired);
+          //     return config;
+          //   } catch (error) {
+          //     return Promise.reject(error);
+          //   }
+          // }
+          // return config;
+          const token = await instance.getLocalAccessToken();
+          config.headers["X-Token"] = token;
+          return config;
+        },
+        (error) => {
+          return Promise.reject(error);
+        }
+      );
+
+      instance.interceptors.response.use(
+        async (response) => {
+          const config = response.config;
+
+          const { code, message } = response.data;
+          if (code && code == "401") {
+            if (message == "jwt expired") {
+              const res = await refreshToken();
+              config.headers["X-Token"] = res.element.accessToken;
+              await instance.setLocalAccessToken(res.element.accessToken);
+              return instance(config);
+            }
+          }
+          return response;
+        },
+        (error) => {
+          return Promise.reject(error);
+        }
+      );
+      instance.setLocalAccessToken = (token) => {
+        window.localStorage.setItem("accessToken", token);
+      };
+      instance.getLocalAccessToken = () => {
+        return window.localStorage.getItem("accessToken") || null;
+      };
+
+      // function
+      const btnLogin = document.getElementById("_login");
+      if (btnLogin) {
+        btnLogin.addEventListener("click", async () => {
+          const data = await login();
+
+          const { status, element } = data;
+          if (status == "success") {
+            await instance.setLocalAccessToken(element.accessToken);
+          }
+        });
+      }
+      const btnGetList = document.getElementById("_getList");
+      if (btnGetList) {
+        btnGetList.addEventListener("click", async () => {
+          const data = await getUser();
+          const { status, user } = data;
+        });
+      }
+      async function login() {
+        const res = await instance.get("/login");
+        return res.data;
+      }
+      async function getUser() {
+        const res = await instance.get("/user");
+        return res.data;
+      }
+      async function refreshToken() {
+        const res = await instance.get("/refreshToken");
+        return res.data;
+      }
+      // end function
+    </script>
+  </body>
+</html>
